@@ -1,6 +1,28 @@
 {
   "current_month": "2026-04",
   "by_month": {
-    "2026-04": []
+    "2026-04": [
+      {
+        "id": "BHP-26-04-002",
+        "date": "2026-04-30",
+        "month": "2026-04",
+        "client_name": "Say Ocean",
+        "product_id": "PICK-EST-071",
+        "quantity": 100,
+        "pricing_mode": "Patrocinio",
+        "pricing_note": "Patrocinio",
+        "engraving_mode": "2 Lados",
+        "engraving_cost": 0.0,
+        "shipping_mode": "Entrega incluida",
+        "shipping_cost": 0.0,
+        "advance": 1000.0,
+        "unit_sale_price": 1000.0,
+        "subtotal": 1000.0,
+        "total": 1000.0,
+        "balance": 0.0,
+        "status": "En proceso",
+        "notes": ""
+      }
+    ]
   }
 }

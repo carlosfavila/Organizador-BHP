@@ -1,3 +1,22 @@
 {
-  "items": []
+  "items": [
+    {
+      "name": "Alan Miranda - The Blackest Eyes",
+      "total_spent": 0.0,
+      "orders": []
+    },
+    {
+      "name": "Say Ocean",
+      "total_spent": 1000.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-002",
+          "date": "2026-04-30",
+          "product_id": "PICK-EST-071",
+          "quantity": 100,
+          "total": 1000.0
+        }
+      ]
+    }
+  ]
 }
