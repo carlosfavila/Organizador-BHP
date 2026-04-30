@@ -1,0 +1,79 @@
+{
+  "groups": {
+    "JAZZ": {
+      "name": "Jazz XL y III",
+      "tiers": [
+        {
+          "qty": 10,
+          "one_side": 180.0,
+          "two_sides": 200.0
+        },
+        {
+          "qty": 20,
+          "one_side": 340.0,
+          "two_sides": 370.0
+        },
+        {
+          "qty": 30,
+          "one_side": 480.0,
+          "two_sides": 520.0
+        }
+      ],
+      "bulk": {
+        "min_qty": 40,
+        "one_side_unit": 15.0,
+        "two_sides_unit": 16.0
+      }
+    },
+    "TRI_TEAR": {
+      "name": "Triangular y Teardrop",
+      "tiers": [
+        {
+          "qty": 10,
+          "one_side": 170.0,
+          "two_sides": 180.0
+        },
+        {
+          "qty": 20,
+          "one_side": 320.0,
+          "two_sides": 340.0
+        },
+        {
+          "qty": 30,
+          "one_side": 450.0,
+          "two_sides": 490.0
+        }
+      ],
+      "bulk": {
+        "min_qty": 40,
+        "one_side_unit": 14.0,
+        "two_sides_unit": 15.0
+      }
+    },
+    "STANDARD": {
+      "name": "Estandar",
+      "tiers": [
+        {
+          "qty": 10,
+          "one_side": 140.0,
+          "two_sides": 160.0
+        },
+        {
+          "qty": 20,
+          "one_side": 260.0,
+          "two_sides": 300.0
+        },
+        {
+          "qty": 30,
+          "one_side": 360.0,
+          "two_sides": 420.0
+        }
+      ],
+      "bulk": {
+        "min_qty": 40,
+        "one_side_unit": 11.0,
+        "two_sides_unit": 13.0
+      }
+    }
+  }
+}

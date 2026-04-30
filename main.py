@@ -35,6 +35,38 @@ INITIAL_PRODUCTS = [
     {"id": "ALT-DIJ-SLV", "name": "Dije Plateado", "category": "Alternos", "stock": 0, "min_stock": 10, "unit_cost": 0.0, "sale_price": 50.0},
 ]
 
+DEFAULT_PICK_PRICING = {
+    "groups": {
+        "JAZZ": {
+            "name": "Jazz XL y III",
+            "tiers": [
+                {"qty": 10, "one_side": 180.0, "two_sides": 200.0},
+                {"qty": 20, "one_side": 340.0, "two_sides": 370.0},
+                {"qty": 30, "one_side": 480.0, "two_sides": 520.0},
+            ],
+            "bulk": {"min_qty": 40, "one_side_unit": 15.0, "two_sides_unit": 16.0},
+        },
+        "TRI_TEAR": {
+            "name": "Triangular y Teardrop",
+            "tiers": [
+                {"qty": 10, "one_side": 170.0, "two_sides": 180.0},
+                {"qty": 20, "one_side": 320.0, "two_sides": 340.0},
+                {"qty": 30, "one_side": 450.0, "two_sides": 490.0},
+            ],
+            "bulk": {"min_qty": 40, "one_side_unit": 14.0, "two_sides_unit": 15.0},
+        },
+        "STANDARD": {
+            "name": "Estandar",
+            "tiers": [
+                {"qty": 10, "one_side": 140.0, "two_sides": 160.0},
+                {"qty": 20, "one_side": 260.0, "two_sides": 300.0},
+                {"qty": 30, "one_side": 360.0, "two_sides": 420.0},
+            ],
+            "bulk": {"min_qty": 40, "one_side_unit": 11.0, "two_sides_unit": 13.0},
+        },
+    }
+}
+
 
 def month_key_from_date(value: str) -> str:
     return value[:7]
@@ -59,13 +91,22 @@ def safe_int(value: str, default: int = 0) -> int:
 
 
 def calculate_engraving_cost(subtotal: float, engraving_mode: str) -> float:
-    if engraving_mode in {"Lado(s)", "2 Lados"}:
-        return round(subtotal * 0.10, 2)
+    if engraving_mode in {"1 Lado", "Lado(s)", "2 Lados", "Sin grabado"}:
+        return 0.0
     return 0.0
 
 
 def is_pick_product(product: dict[str, Any]) -> bool:
     return str(product.get("category", "")).strip().lower() == "plumillas"
+
+
+def infer_pick_pricing_group(product_name: str) -> str:
+    upper = product_name.upper()
+    if "JAZZ III" in upper or "JAZZ XL" in upper:
+        return "JAZZ"
+    if "TRIANGULAR" in upper or "TEARDROP" in upper:
+        return "TRI_TEAR"
+    return "STANDARD"
 
 
 def get_sale_unit_price(product: dict[str, Any], engraving_mode: str) -> float:
@@ -74,6 +115,66 @@ def get_sale_unit_price(product: dict[str, Any], engraving_mode: str) -> float:
     if is_pick_product(product) and engraving_mode == "2 Lados":
         return round(two_sides_price, 2)
     return round(one_side_price, 2)
+
+
+def calculate_pick_subtotal_from_rules(
+    qty: int,
+    engraving_mode: str,
+    pricing_group: str,
+    pricing_db: dict[str, Any],
+) -> tuple[float, float, str]:
+    groups = pricing_db.get("groups", {})
+    group_data = groups.get(pricing_group) or groups.get("STANDARD", {})
+    group_name = group_data.get("name", pricing_group)
+
+    side_key = "two_sides" if engraving_mode == "2 Lados" else "one_side"
+    bulk_data = group_data.get("bulk", {})
+    bulk_min_qty = max(1, safe_int(str(bulk_data.get("min_qty", 40)), 40))
+
+    if qty >= bulk_min_qty:
+        unit_key = "two_sides_unit" if side_key == "two_sides" else "one_side_unit"
+        bulk_unit = safe_float(str(bulk_data.get(unit_key, 0.0)), 0.0)
+        subtotal = round(qty * bulk_unit, 2)
+        return subtotal, bulk_unit, f"{group_name} mayoreo ({qty} x ${bulk_unit:.2f})"
+
+    tiers = sorted(group_data.get("tiers", []), key=lambda t: safe_int(str(t.get("qty", 0)), 0))
+    if not tiers:
+        return 0.0, 0.0, f"{group_name} sin reglas"
+
+    selected_tier = tiers[0]
+    for tier in tiers:
+        tier_qty = safe_int(str(tier.get("qty", 0)), 0)
+        if qty >= tier_qty:
+            selected_tier = tier
+
+    tier_qty = max(1, safe_int(str(selected_tier.get("qty", 10)), 10))
+    tier_price = safe_float(str(selected_tier.get(side_key, 0.0)), 0.0)
+    implied_unit = round(tier_price / tier_qty, 2)
+    return tier_price, implied_unit, f"{group_name} paquete {tier_qty}"
+
+
+def calculate_sale_subtotal(
+    product: dict[str, Any],
+    qty: int,
+    engraving_mode: str,
+    pricing_mode: str,
+    pricing_db: dict[str, Any],
+    sponsorship_total: float = 0.0,
+) -> tuple[float, float, str]:
+    if qty <= 0:
+        return 0.0, 0.0, "Cantidad invalida"
+
+    if pricing_mode == "Patrocinio":
+        sponsorship_price = max(0.0, sponsorship_total)
+        return sponsorship_price, sponsorship_price, "Patrocinio"
+
+    if is_pick_product(product):
+        pricing_group = product.get("pricing_group", infer_pick_pricing_group(product.get("name", "")))
+        return calculate_pick_subtotal_from_rules(qty, engraving_mode, pricing_group, pricing_db)
+
+    unit_price = get_sale_unit_price(product, engraving_mode)
+    subtotal = round(qty * unit_price, 2)
+    return subtotal, unit_price, "Precio unitario"
 
 
 def generate_product_id(name: str, category: str, existing_ids: set[str]) -> str:
@@ -108,6 +209,7 @@ class JsonStore:
         self.compras_file = self.base_dir / "compras.json"
         self.mermas_file = self.base_dir / "mermas.json"
         self.clientes_file = self.base_dir / "clientes.json"
+        self.pricing_file = self.base_dir / "pricing_rules.json"
         self._ensure_files()
 
     def _read_json(self, path: Path, default_value: Any) -> Any:
@@ -137,6 +239,7 @@ class JsonStore:
         compras_default = {"items": []}
         mermas_default = {"items": []}
         clientes_default = {"items": []}
+        pricing_default = deepcopy(DEFAULT_PICK_PRICING)
 
         stock_data = self._read_json(self.stock_file, stock_default)
         if "items" not in stock_data or not isinstance(stock_data["items"], list):
@@ -152,6 +255,12 @@ class JsonStore:
             row["sale_price_one_side"] = safe_float(str(row.get("sale_price_one_side", base_price)), base_price)
             row["sale_price_two_sides"] = safe_float(str(row.get("sale_price_two_sides", row["sale_price_one_side"])), row["sale_price_one_side"])
             row["sale_price"] = row["sale_price_one_side"]
+            if is_pick_product(row):
+                row["pricing_group"] = row.get("pricing_group", infer_pick_pricing_group(row.get("name", "")))
+                row["sponsorship_price"] = max(0.0, safe_float(str(row.get("sponsorship_price", row["sale_price_one_side"])), row["sale_price_one_side"]))
+            else:
+                row["pricing_group"] = ""
+                row["sponsorship_price"] = max(0.0, safe_float(str(row.get("sponsorship_price", row["sale_price_one_side"])), row["sale_price_one_side"]))
         self._write_json(self.stock_file, stock_data)
 
         ventas_data = self._read_json(self.ventas_file, ventas_default)
@@ -165,6 +274,7 @@ class JsonStore:
         self._write_json(self.compras_file, self._read_json(self.compras_file, compras_default))
         self._write_json(self.mermas_file, self._read_json(self.mermas_file, mermas_default))
         self._write_json(self.clientes_file, self._read_json(self.clientes_file, clientes_default))
+        self._write_json(self.pricing_file, self._read_json(self.pricing_file, pricing_default))
 
     def load_all(self) -> dict[str, Any]:
         return {
@@ -173,6 +283,7 @@ class JsonStore:
             "compras": self._read_json(self.compras_file, {"items": []}),
             "mermas": self._read_json(self.mermas_file, {"items": []}),
             "clientes": self._read_json(self.clientes_file, {"items": []}),
+            "pricing": self._read_json(self.pricing_file, deepcopy(DEFAULT_PICK_PRICING)),
         }
 
     def save_stock(self, payload: dict[str, Any]) -> None:
@@ -189,6 +300,9 @@ class JsonStore:
 
     def save_clientes(self, payload: dict[str, Any]) -> None:
         self._write_json(self.clientes_file, payload)
+
+    def save_pricing(self, payload: dict[str, Any]) -> None:
+        self._write_json(self.pricing_file, payload)
 
 
 def build_product_map(stock_items: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -302,7 +416,7 @@ def main(page: ft.Page) -> None:
     page.window.width = 1450
     page.window.height = 900
 
-    store = JsonStore(Path.cwd())
+    store = JsonStore(Path.cwd() / "assets")
     db = store.load_all()
     stock_items = db["stock"]["items"]
     product_map = build_product_map(stock_items)
@@ -316,6 +430,23 @@ def main(page: ft.Page) -> None:
             if rec.get("product_id") == product_id and not rec.get("received", False):
                 pending += safe_int(str(rec.get("quantity", 0)), 0)
         return pending
+
+    def get_pick_price_brief(product: dict[str, Any]) -> str:
+        if not is_pick_product(product):
+            return (
+                f"1 lado: ${float(product.get('sale_price_one_side', product.get('sale_price', 0))):.2f} | "
+                f"2 lados: ${float(product.get('sale_price_two_sides', product.get('sale_price', 0))):.2f}"
+            )
+
+        pricing_group = product.get("pricing_group", infer_pick_pricing_group(product.get("name", "")))
+        groups = db.get("pricing", {}).get("groups", {})
+        group_data = groups.get(pricing_group) or groups.get("STANDARD", {})
+        group_name = group_data.get("name", pricing_group)
+        bulk = group_data.get("bulk", {})
+        return (
+            f"{group_name} | P10/P20/P30 | Mayoreo {int(bulk.get('min_qty', 40))}+ "
+            f"(${float(bulk.get('one_side_unit', 0)):.2f}/${float(bulk.get('two_sides_unit', 0)):.2f})"
+        )
 
     def show_message(text: str, color: str = ft.Colors.BLUE_300) -> None:
         page.snack_bar = ft.SnackBar(content=ft.Text(text), bgcolor=color, duration=3500)
@@ -570,17 +701,24 @@ def main(page: ft.Page) -> None:
     new_client_name = ft.TextField(label="o crear cliente nuevo", width=240)
     sale_product_dropdown = ft.Dropdown(label="Producto", width=330, options=[])
     sale_qty = ft.TextField(label="Cantidad", value="1", width=100)
+    sale_price_mode = ft.Dropdown(
+        label="Modalidad",
+        width=160,
+        value="Normal",
+        options=[ft.dropdown.Option("Normal"), ft.dropdown.Option("Patrocinio")],
+    )
+    sponsorship_total_input = ft.TextField(label="Total patrocinio", value="0", width=150, disabled=True)
     engraving_mode = ft.Dropdown(
         label="Grabado",
         width=140,
-        value="Lado(s)",
-        options=[ft.dropdown.Option("Lado(s)"), ft.dropdown.Option("2 Lados"), ft.dropdown.Option("Sin grabado")],
+        value="1 Lado",
+        options=[ft.dropdown.Option("1 Lado"), ft.dropdown.Option("2 Lados"), ft.dropdown.Option("Sin grabado")],
     )
     shipping_mode = ft.Dropdown(
         label="Envio",
         width=180,
-        value="Metro/Metrobús ($6)",
-        options=[ft.dropdown.Option("Metro/Metrobús ($6)"), ft.dropdown.Option("Envio Cotizado")],
+        value="Entrega incluida",
+        options=[ft.dropdown.Option("Entrega incluida"), ft.dropdown.Option("Envio Cotizado")],
     )
     shipping_manual = ft.TextField(label="Envio manual", value="0", width=120, disabled=True)
     advance_input = ft.TextField(label="Anticipo", value="0", width=120)
@@ -593,6 +731,7 @@ def main(page: ft.Page) -> None:
     notes_input = ft.TextField(label="Notas", multiline=True, min_lines=2, max_lines=3, expand=True)
 
     subtotal_preview = ft.Text("Subtotal: $0.00")
+    pricing_rule_preview = ft.Text("Regla: --", color=ft.Colors.CYAN_200)
     engraving_preview = ft.Text("Grabado: $0.00")
     shipping_preview = ft.Text("Envio: $0.00")
     total_preview = ft.Text("Total: $0.00")
@@ -626,25 +765,47 @@ def main(page: ft.Page) -> None:
         shipping_manual.disabled = shipping_mode.value != "Envio Cotizado"
         if shipping_manual.disabled:
             shipping_manual.value = "0"
-        recalc_sale_totals()
-        page.update()
+        recalc_sale_totals(trigger_update=True)
 
-    def recalc_sale_totals(_: ft.ControlEvent | None = None) -> None:
+    def sale_mode_changed(event: ft.ControlEvent | None = None) -> None:
+        selected_mode = sale_price_mode.value
+        if event and getattr(event, "control", None):
+            selected_mode = event.control.value
+            sale_price_mode.value = selected_mode
+
+        sponsorship_total_input.disabled = selected_mode != "Patrocinio"
+        if sponsorship_total_input.disabled:
+            sponsorship_total_input.value = "0"
+        recalc_sale_totals(trigger_update=True)
+
+    def recalc_sale_totals(_: ft.ControlEvent | None = None, trigger_update: bool = False) -> None:
         product = product_map.get(sale_product_dropdown.value or "")
         qty = safe_int(sale_qty.value, 0)
-        unit_price = get_sale_unit_price(product, engraving_mode.value or "") if product else 0.0
-        subtotal = round(qty * unit_price, 2)
+        subtotal, unit_price, pricing_note = (
+            calculate_sale_subtotal(
+                product,
+                qty,
+                engraving_mode.value or "",
+                sale_price_mode.value or "Normal",
+                db.get("pricing", {}),
+                sponsorship_total=safe_float(sponsorship_total_input.value, 0.0),
+            )
+            if product
+            else (0.0, 0.0, "--")
+        )
         engraving_cost = calculate_engraving_cost(subtotal, engraving_mode.value or "")
-        shipping_cost = 6.0 if shipping_mode.value == "Metro/Metrobús ($6)" else safe_float(shipping_manual.value, 0.0)
+        shipping_cost = safe_float(shipping_manual.value, 0.0) if shipping_mode.value == "Envio Cotizado" else 0.0
         total = round(subtotal + engraving_cost + shipping_cost, 2)
         balance = calculate_balance(subtotal, engraving_cost, shipping_cost, safe_float(advance_input.value, 0.0))
 
         subtotal_preview.value = f"Subtotal: ${subtotal:.2f}"
+        pricing_rule_preview.value = f"Regla: {pricing_note} | ref: ${unit_price:.2f}"
         engraving_preview.value = f"Grabado: ${engraving_cost:.2f}"
         shipping_preview.value = f"Envio: ${shipping_cost:.2f}"
         total_preview.value = f"Total: ${total:.2f}"
         balance_preview.value = f"Saldo pendiente: ${balance:.2f}"
-        page.update()
+        if trigger_update:
+            page.update()
 
     def add_sale(_: ft.ControlEvent) -> None:
         client_name = (new_client_name.value or "").strip() or (client_dropdown.value or "").strip()
@@ -665,15 +826,24 @@ def main(page: ft.Page) -> None:
         if qty > int(product.get("stock", 0)):
             show_message("Stock insuficiente para esta venta.", ft.Colors.RED_400)
             return
+        if sale_price_mode.value == "Patrocinio" and safe_float(sponsorship_total_input.value, 0.0) <= 0:
+            show_message("Captura un total valido para patrocinio.", ft.Colors.RED_400)
+            return
 
         current_month = db["ventas"]["current_month"]
         month_sales = db["ventas"]["by_month"].setdefault(current_month, [])
         sale_date = datetime.now().strftime("%Y-%m-%d")
         sale_id = generate_sale_id(current_month, month_sales)
-        unit_price = get_sale_unit_price(product, engraving_mode.value or "")
-        subtotal = round(qty * unit_price, 2)
+        subtotal, unit_price, pricing_note = calculate_sale_subtotal(
+            product,
+            qty,
+            engraving_mode.value or "",
+            sale_price_mode.value or "Normal",
+            db.get("pricing", {}),
+            sponsorship_total=safe_float(sponsorship_total_input.value, 0.0),
+        )
         engraving_cost = calculate_engraving_cost(subtotal, engraving_mode.value or "")
-        shipping_cost = 6.0 if shipping_mode.value == "Metro/Metrobús ($6)" else safe_float(shipping_manual.value, 0.0)
+        shipping_cost = safe_float(shipping_manual.value, 0.0) if shipping_mode.value == "Envio Cotizado" else 0.0
         advance = safe_float(advance_input.value, 0.0)
         total = round(subtotal + engraving_cost + shipping_cost, 2)
         balance = calculate_balance(subtotal, engraving_cost, shipping_cost, advance)
@@ -685,6 +855,8 @@ def main(page: ft.Page) -> None:
             "client_name": client_name,
             "product_id": product_id,
             "quantity": qty,
+            "pricing_mode": sale_price_mode.value,
+            "pricing_note": pricing_note,
             "engraving_mode": engraving_mode.value,
             "engraving_cost": engraving_cost,
             "shipping_mode": shipping_mode.value,
@@ -725,8 +897,11 @@ def main(page: ft.Page) -> None:
         notes_input.value = ""
         advance_input.value = "0"
         sale_qty.value = "1"
+        sale_price_mode.value = "Normal"
+        sponsorship_total_input.value = "0"
+        sponsorship_total_input.disabled = True
 
-        refresh_all_views()
+        refresh_views(dashboard=True, sales=True, stock=True, clients=True)
         show_message(f"Venta registrada: {sale_id}", ft.Colors.GREEN_500)
 
     def refresh_sales_views() -> None:
@@ -738,8 +913,7 @@ def main(page: ft.Page) -> None:
                 text=(
                     f"{item['name']} | stock: {item.get('stock', 0)} | "
                     f"pendiente: {get_pending_purchase_qty(item['id'])} | "
-                    f"1 lado: ${float(item.get('sale_price_one_side', item.get('sale_price', 0))):.2f} | "
-                    f"2 lados: ${float(item.get('sale_price_two_sides', item.get('sale_price', 0))):.2f}"
+                    f"{get_pick_price_brief(item)}"
                 ),
             )
             for item in stock_items
@@ -772,20 +946,22 @@ def main(page: ft.Page) -> None:
         recalc_sale_totals()
 
     shipping_mode.on_change = shipping_mode_changed
-    sale_product_dropdown.on_change = recalc_sale_totals
-    sale_qty.on_change = recalc_sale_totals
-    engraving_mode.on_change = recalc_sale_totals
-    shipping_manual.on_change = recalc_sale_totals
-    advance_input.on_change = recalc_sale_totals
+    sale_product_dropdown.on_change = lambda e: recalc_sale_totals(e, trigger_update=True)
+    sale_price_mode.on_change = lambda e: sale_mode_changed(e)
+    engraving_mode.on_change = lambda e: recalc_sale_totals(e, trigger_update=True)
+    sponsorship_total_input.on_change = lambda e: recalc_sale_totals(e, trigger_update=True)
+    sale_qty.on_change = lambda e: recalc_sale_totals(e, trigger_update=True)
+    shipping_manual.on_change = lambda e: recalc_sale_totals(e, trigger_update=True)
+    advance_input.on_change = lambda e: recalc_sale_totals(e, trigger_update=True)
 
     ventas_tab = ft.Column(
         controls=[
             ft.Row([sale_id_preview, sale_date_preview], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Row([client_dropdown, new_client_name]),
-            ft.Row([sale_product_dropdown, sale_qty, engraving_mode]),
+            ft.Row([sale_product_dropdown, sale_qty, sale_price_mode, sponsorship_total_input, engraving_mode]),
             ft.Row([shipping_mode, shipping_manual, advance_input, sale_status]),
             notes_input,
-            ft.Row([subtotal_preview, engraving_preview, shipping_preview, total_preview, balance_preview]),
+            ft.Row([subtotal_preview, pricing_rule_preview, engraving_preview, shipping_preview, total_preview, balance_preview]),
             ft.Row([ft.Button("Registrar venta", icon=ft.Icons.POINT_OF_SALE, on_click=add_sale)]),
             ft.Divider(),
             ft.Text("Ventas del mes", weight=ft.FontWeight.BOLD),
@@ -798,13 +974,9 @@ def main(page: ft.Page) -> None:
     stock_table = ft.DataTable(
         columns=[
             ft.DataColumn(ft.Text("Producto")),
-            ft.DataColumn(ft.Text("Categoria")),
-            ft.DataColumn(ft.Text("Stock")),
-            ft.DataColumn(ft.Text("Pendiente Compra")),
+            ft.DataColumn(ft.Text("Existente")),
+            ft.DataColumn(ft.Text("Pendiente (en camino)")),
             ft.DataColumn(ft.Text("Minimo")),
-            ft.DataColumn(ft.Text("Costo Unitario")),
-            ft.DataColumn(ft.Text("Precio 1 Lado")),
-            ft.DataColumn(ft.Text("Precio 2 Lados")),
             ft.DataColumn(ft.Text("Guardar")),
         ],
         rows=[],
@@ -816,23 +988,14 @@ def main(page: ft.Page) -> None:
         item_id: str,
         stock_value: str,
         min_value: str,
-        unit_value: str,
-        one_side_price_value: str,
-        two_sides_price_value: str,
     ) -> None:
         row = product_map.get(item_id)
         if not row:
             return
         row["stock"] = max(0, safe_int(stock_value, 0))
         row["min_stock"] = max(0, safe_int(min_value, 0))
-        row["unit_cost"] = max(0.0, safe_float(unit_value, 0.0))
-        row["sale_price_one_side"] = max(0.0, safe_float(one_side_price_value, 0.0))
-        row["sale_price_two_sides"] = max(0.0, safe_float(two_sides_price_value, row["sale_price_one_side"]))
-        if not is_pick_product(row):
-            row["sale_price_two_sides"] = row["sale_price_one_side"]
-        row["sale_price"] = row["sale_price_one_side"]
         store.save_stock(db["stock"])
-        refresh_all_views()
+        refresh_views(stock=True, sales=True, purchases=True, waste=True)
         show_message(f"Stock actualizado: {row['name']}", ft.Colors.GREEN_500)
 
     def refresh_stock_table() -> None:
@@ -840,20 +1003,12 @@ def main(page: ft.Page) -> None:
         for item in stock_items:
             stock_input = ft.TextField(value=str(item.get("stock", 0)), width=90)
             min_input = ft.TextField(value=str(item.get("min_stock", 0)), width=90)
-            unit_input = ft.TextField(value=f"{float(item.get('unit_cost', 0.0)):.2f}", width=110)
-            one_side_input = ft.TextField(value=f"{float(item.get('sale_price_one_side', item.get('sale_price', 0.0))):.2f}", width=110)
-            two_sides_input = ft.TextField(
-                value=f"{float(item.get('sale_price_two_sides', item.get('sale_price_one_side', item.get('sale_price', 0.0)))):.2f}",
-                width=110,
-                disabled=not is_pick_product(item),
-            )
             warning = int(item.get("stock", 0)) < int(item.get("min_stock", 0))
             rows.append(
                 ft.DataRow(
                     color=ft.Colors.with_opacity(0.22, ft.Colors.RED_400) if warning else None,
                     cells=[
                         ft.DataCell(ft.Text(item["name"])),
-                        ft.DataCell(ft.Text(item["category"])),
                         ft.DataCell(stock_input),
                         ft.DataCell(
                             ft.Text(
@@ -862,15 +1017,12 @@ def main(page: ft.Page) -> None:
                             )
                         ),
                         ft.DataCell(min_input),
-                        ft.DataCell(unit_input),
-                        ft.DataCell(one_side_input),
-                        ft.DataCell(two_sides_input),
                         ft.DataCell(
                             ft.IconButton(
                                 icon=ft.Icons.SAVE,
                                 tooltip="Guardar",
-                                on_click=lambda e, pid=item["id"], a=stock_input, b=min_input, c=unit_input, d=one_side_input, f=two_sides_input: save_stock_row(
-                                    pid, a.value, b.value, c.value, d.value, f.value
+                                on_click=lambda e, pid=item["id"], a=stock_input, b=min_input: save_stock_row(
+                                    pid, a.value, b.value
                                 ),
                             )
                         ),
@@ -892,12 +1044,13 @@ def main(page: ft.Page) -> None:
     new_product_price_one_side = ft.TextField(label="Precio 1 lado", value="0", width=130)
     new_product_price_two_sides = ft.TextField(label="Precio 2 lados", value="0", width=130)
 
-    def handle_new_product_category(_: ft.ControlEvent | None = None) -> None:
+    def handle_new_product_category(_: ft.ControlEvent | None = None, trigger_update: bool = True) -> None:
         is_pick = new_product_category.value == "Plumillas"
         new_product_price_two_sides.disabled = not is_pick
         if not is_pick:
             new_product_price_two_sides.value = new_product_price_one_side.value
-        page.update()
+        if trigger_update:
+            page.update()
 
     def add_new_product(_: ft.ControlEvent) -> None:
         name = (new_product_name.value or "").strip()
@@ -923,6 +1076,8 @@ def main(page: ft.Page) -> None:
             "sale_price": one_side_price,
             "sale_price_one_side": one_side_price,
             "sale_price_two_sides": two_sides_price,
+            "pricing_group": infer_pick_pricing_group(name) if category == "Plumillas" else "",
+            "sponsorship_price": one_side_price,
         }
         stock_items.append(new_item)
         product_map[product_id] = new_item
@@ -934,17 +1089,96 @@ def main(page: ft.Page) -> None:
         new_product_cost.value = "0"
         new_product_price_one_side.value = "0"
         new_product_price_two_sides.value = "0"
-        handle_new_product_category()
-        refresh_all_views()
+        handle_new_product_category(trigger_update=False)
+        refresh_views(stock=True, sales=True, purchases=True, waste=True)
         show_message(f"Producto agregado al stock: {name}", ft.Colors.GREEN_500)
 
-    new_product_category.on_change = handle_new_product_category
-    new_product_price_one_side.on_change = lambda e: handle_new_product_category()
+    new_product_category.on_change = lambda e: handle_new_product_category(e, trigger_update=True)
+    new_product_price_one_side.on_change = lambda e: handle_new_product_category(e, trigger_update=True)
+
+    def open_pick_pricing_dialog(_: ft.ControlEvent) -> None:
+        groups = db.setdefault("pricing", deepcopy(DEFAULT_PICK_PRICING)).setdefault("groups", {})
+        group_keys = ["JAZZ", "TRI_TEAR", "STANDARD"]
+        controls: list[ft.Control] = []
+        fields: dict[str, dict[str, ft.TextField]] = {}
+
+        for group_key in group_keys:
+            group_data = groups.get(group_key, deepcopy(DEFAULT_PICK_PRICING["groups"][group_key]))
+            tiers = sorted(group_data.get("tiers", []), key=lambda t: safe_int(str(t.get("qty", 0)), 0))
+            while len(tiers) < 3:
+                tiers.append({"qty": 10 * (len(tiers) + 1), "one_side": 0.0, "two_sides": 0.0})
+            bulk = group_data.get("bulk", {})
+
+            field_bucket = {
+                "t1_one": ft.TextField(label="P10 1 lado", value=f"{float(tiers[0].get('one_side', 0.0)):.2f}", width=120),
+                "t1_two": ft.TextField(label="P10 2 lados", value=f"{float(tiers[0].get('two_sides', 0.0)):.2f}", width=120),
+                "t2_one": ft.TextField(label="P20 1 lado", value=f"{float(tiers[1].get('one_side', 0.0)):.2f}", width=120),
+                "t2_two": ft.TextField(label="P20 2 lados", value=f"{float(tiers[1].get('two_sides', 0.0)):.2f}", width=120),
+                "t3_one": ft.TextField(label="P30 1 lado", value=f"{float(tiers[2].get('one_side', 0.0)):.2f}", width=120),
+                "t3_two": ft.TextField(label="P30 2 lados", value=f"{float(tiers[2].get('two_sides', 0.0)):.2f}", width=120),
+                "bulk_min": ft.TextField(label="Mayoreo desde", value=str(int(bulk.get("min_qty", 40))), width=120),
+                "bulk_one": ft.TextField(label="Mayoreo 1 lado", value=f"{float(bulk.get('one_side_unit', 0.0)):.2f}", width=120),
+                "bulk_two": ft.TextField(label="Mayoreo 2 lados", value=f"{float(bulk.get('two_sides_unit', 0.0)):.2f}", width=120),
+            }
+            fields[group_key] = field_bucket
+            controls.extend(
+                [
+                    ft.Text(group_data.get("name", group_key), weight=ft.FontWeight.BOLD, size=15),
+                    ft.Row([field_bucket["t1_one"], field_bucket["t1_two"], field_bucket["t2_one"], field_bucket["t2_two"]], wrap=True),
+                    ft.Row([field_bucket["t3_one"], field_bucket["t3_two"], field_bucket["bulk_min"], field_bucket["bulk_one"], field_bucket["bulk_two"]], wrap=True),
+                    ft.Divider(),
+                ]
+            )
+
+        def close_dialog() -> None:
+            dialog.open = False
+            page.update()
+
+        def save_pricing_changes(_: ft.ControlEvent) -> None:
+            for group_key in group_keys:
+                f = fields[group_key]
+                groups[group_key] = {
+                    "name": groups.get(group_key, {}).get("name", DEFAULT_PICK_PRICING["groups"][group_key]["name"]),
+                    "tiers": [
+                        {"qty": 10, "one_side": max(0.0, safe_float(f["t1_one"].value, 0.0)), "two_sides": max(0.0, safe_float(f["t1_two"].value, 0.0))},
+                        {"qty": 20, "one_side": max(0.0, safe_float(f["t2_one"].value, 0.0)), "two_sides": max(0.0, safe_float(f["t2_two"].value, 0.0))},
+                        {"qty": 30, "one_side": max(0.0, safe_float(f["t3_one"].value, 0.0)), "two_sides": max(0.0, safe_float(f["t3_two"].value, 0.0))},
+                    ],
+                    "bulk": {
+                        "min_qty": max(1, safe_int(f["bulk_min"].value, 40)),
+                        "one_side_unit": max(0.0, safe_float(f["bulk_one"].value, 0.0)),
+                        "two_sides_unit": max(0.0, safe_float(f["bulk_two"].value, 0.0)),
+                    },
+                }
+
+            store.save_pricing(db["pricing"])
+            refresh_views(sales=True, stock=True)
+            close_dialog()
+            show_message("Costos de plumillas actualizados.", ft.Colors.GREEN_500)
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Configurar costos de plumillas"),
+            content=ft.Container(
+                width=980,
+                height=560,
+                content=ft.Column(controls=controls, scroll=ft.ScrollMode.ALWAYS),
+            ),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: close_dialog()),
+                ft.Button("Guardar costos", icon=ft.Icons.SAVE, on_click=save_pricing_changes),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        page.dialog = dialog
+        dialog.open = True
+        page.update()
 
     stock_tab = ft.Column(
         controls=[
             ft.Text("Stock general (edicion rapida)", size=16, weight=ft.FontWeight.BOLD),
             ft.Text("Las filas en rojo estan por debajo del minimo."),
+            ft.Button("Configurar costos de modelos de plumilla", icon=ft.Icons.TUNE, on_click=open_pick_pricing_dialog),
             ft.Divider(),
             ft.Text("Agregar nuevo producto", weight=ft.FontWeight.BOLD),
             ft.Row(
@@ -1014,7 +1248,7 @@ def main(page: ft.Page) -> None:
 
         purchase_qty.value = ""
         purchase_total.value = ""
-        refresh_all_views()
+        refresh_views(dashboard=True, purchases=True, stock=True, sales=True)
         show_message("Compra registrada. Usa 'Recibir' cuando llegue producto.", ft.Colors.GREEN_500)
 
     def receive_purchase(item_index: int) -> None:
@@ -1053,7 +1287,7 @@ def main(page: ft.Page) -> None:
 
         store.save_compras(db["compras"])
         store.save_stock(db["stock"])
-        refresh_all_views()
+        refresh_views(purchases=True, stock=True, sales=True)
         show_message(message, color)
 
     def refresh_purchase_table() -> None:
@@ -1149,7 +1383,7 @@ def main(page: ft.Page) -> None:
 
         waste_qty.value = ""
         waste_reason.value = ""
-        refresh_all_views()
+        refresh_views(dashboard=True, waste=True, stock=True, sales=True)
         show_message("Merma registrada.", ft.Colors.ORANGE_400)
 
     def refresh_waste_table() -> None:
@@ -1227,9 +1461,9 @@ def main(page: ft.Page) -> None:
             client_history_dropdown.value = names[0]
         elif not names:
             client_history_dropdown.value = None
-        render_client_history()
+        render_client_history(trigger_update=False)
 
-    def render_client_history(_: ft.ControlEvent | None = None) -> None:
+    def render_client_history(_: ft.ControlEvent | None = None, trigger_update: bool = True) -> None:
         selected = client_history_dropdown.value
         client = next((c for c in db["clientes"].get("items", []) if c.get("name") == selected), None)
         rows = []
@@ -1247,9 +1481,10 @@ def main(page: ft.Page) -> None:
                     )
                 )
         client_history_table.rows = rows
-        page.update()
+        if trigger_update:
+            page.update()
 
-    client_history_dropdown.on_change = render_client_history
+    client_history_dropdown.on_change = lambda e: render_client_history(e, trigger_update=True)
 
     clientes_tab = ft.Column(
         controls=[
@@ -1299,14 +1534,40 @@ def main(page: ft.Page) -> None:
         expand=1,
     )
 
+    def refresh_views(
+        dashboard: bool = False,
+        sales: bool = False,
+        stock: bool = False,
+        purchases: bool = False,
+        waste: bool = False,
+        clients: bool = False,
+        do_update: bool = True,
+    ) -> None:
+        if dashboard:
+            refresh_dashboard()
+        if sales:
+            refresh_sales_views()
+        if stock:
+            refresh_stock_table()
+        if purchases:
+            refresh_purchase_table()
+        if waste:
+            refresh_waste_table()
+        if clients:
+            refresh_clients_views()
+        if do_update:
+            page.update()
+
     def refresh_all_views() -> None:
-        refresh_dashboard()
-        refresh_sales_views()
-        refresh_stock_table()
-        refresh_purchase_table()
-        refresh_waste_table()
-        refresh_clients_views()
-        page.update()
+        refresh_views(
+            dashboard=True,
+            sales=True,
+            stock=True,
+            purchases=True,
+            waste=True,
+            clients=True,
+            do_update=True,
+        )
 
     page.add(tabs)
     refresh_all_views()

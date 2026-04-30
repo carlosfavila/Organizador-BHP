@@ -1,0 +1,58 @@
+{
+  "items": [
+    {
+      "date": "2026-04-29",
+      "month": "2026-04",
+      "product_id": "PICK-EST-15",
+      "quantity": 300,
+      "total_cost": 959.27,
+      "unit_cost": 3.2
+    },
+    {
+      "date": "2026-04-29",
+      "month": "2026-04",
+      "product_id": "PICK-J3-12",
+      "quantity": 100,
+      "total_cost": 419.42,
+      "unit_cost": 4.19,
+      "received": false,
+      "received_date": ""
+    },
+    {
+      "date": "2026-04-29",
+      "month": "2026-04",
+      "product_id": "PICK-JXL-12",
+      "quantity": 100,
+      "total_cost": 405.58,
+      "unit_cost": 4.06,
+      "received": false,
+      "received_date": ""
+    },
+    {
+      "date": "2026-04-29",
+      "month": "2026-04",
+      "product_id": "PICK-TRI-114",
+      "quantity": 300,
+      "total_cost": 1565.87,
+      "unit_cost": 5.22
+    },
+    {
+      "date": "2026-04-29",
+      "month": "2026-04",
+      "product_id": "PICK-EST-10",
+      "quantity": 400,
+      "total_cost": 1199.45,
+      "unit_cost": 3.0
+    },
+    {
+      "date": "2026-04-30",
+      "month": "2026-04",
+      "product_id": "PICK-PLUMILLA-ESTANDAR-NE",
+      "quantity": 100,
+      "total_cost": 340.79,
+      "unit_cost": 3.41,
+      "received": false,
+      "received_date": ""
+    }
+  ]
+}
