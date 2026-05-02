@@ -2,8 +2,16 @@
   "items": [
     {
       "name": "Alan Miranda - The Blackest Eyes",
-      "total_spent": 0.0,
-      "orders": []
+      "total_spent": 440.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-003",
+          "date": "2026-05-01",
+          "product_id": "PICK-PLUMILLA-ESTANDAR-NE",
+          "quantity": 40,
+          "total": 440.0
+        }
+      ]
     },
     {
       "name": "Say Ocean",
@@ -15,6 +23,98 @@
           "product_id": "PICK-EST-071",
           "quantity": 100,
           "total": 1000.0
+        }
+      ]
+    },
+    {
+      "name": "Alfredo CRIM Picks",
+      "total_spent": 260.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-002",
+          "date": "2026-05-01",
+          "product_id": "PICK-EST-10",
+          "quantity": 20,
+          "total": 260.0
+        }
+      ]
+    },
+    {
+      "name": "John - GM",
+      "total_spent": 200.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-004",
+          "date": "2026-05-01",
+          "product_id": "PICK-J3-12",
+          "quantity": 10,
+          "total": 200.0
+        }
+      ]
+    },
+    {
+      "name": "Alex - Magnolias",
+      "total_spent": 480.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-005",
+          "date": "2026-05-01",
+          "product_id": "PICK-J3-12",
+          "quantity": 30,
+          "total": 480.0
+        }
+      ]
+    },
+    {
+      "name": "Juan Topo",
+      "total_spent": 160.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-006",
+          "date": "2026-05-01",
+          "product_id": "PICK-EST-071",
+          "quantity": 10,
+          "total": 160.0
+        }
+      ]
+    },
+    {
+      "name": "Jilgueros",
+      "total_spent": 370.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-007",
+          "date": "2026-05-01",
+          "product_id": "PICK-J3-12",
+          "quantity": 20,
+          "total": 370.0
+        }
+      ]
+    },
+    {
+      "name": "Lalo - Backfield - X",
+      "total_spent": 816.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-04-008",
+          "date": "2026-05-01",
+          "product_id": "PICK-J3-12",
+          "quantity": 1,
+          "total": 150.0
+        },
+        {
+          "sale_id": "BHP-26-04-009",
+          "date": "2026-05-01",
+          "product_id": "PICK-EST-10",
+          "quantity": 20,
+          "total": 220.0
+        },
+        {
+          "sale_id": "BHP-26-04-010",
+          "date": "2026-05-01",
+          "product_id": "PICK-TRI-114",
+          "quantity": 20,
+          "total": 446.0
         }
       ]
     }

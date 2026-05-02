@@ -15,6 +15,7 @@ from services import (
     calculate_engraving_cost,
     calculate_sale_subtotal,
     generate_sale_id,
+    get_month_sales_by_model,
     safe_float,
     safe_int,
     summarize_month,
@@ -107,7 +108,31 @@ def run_app(page: ft.Page) -> None:
     mermas_text = ft.Text("$0.00")
     ganancia_text = ft.Text("$0.00", size=20, weight=ft.FontWeight.BOLD)
     most_sold_text = ft.Text("Sin ventas", color=ft.Colors.AMBER_200)
+    model_sales_chart = ft.Column(expand=True, spacing=6)
     month_sales_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total", "Status"]], rows=[], column_spacing=18, heading_row_color=ft.Colors.BLUE_GREY_900)
+
+    def render_month_model_sales_graph(month: str) -> None:
+        sales_by_model = get_month_sales_by_model(month, db["ventas"])
+        if not sales_by_model:
+            model_sales_chart.controls = [ft.Text("Sin ventas para este mes.", color=ft.Colors.BLUE_GREY_200)]
+            return
+        max_qty = max(qty for _, qty in sales_by_model) or 1
+        rows: list[ft.Control] = []
+        for product_id, qty in sales_by_model[:6]:
+            name = service.product_map.get(product_id, {}).get("name", product_id)
+            bar_width = 80 + int((qty / max_qty) * 260)
+            rows.append(
+                ft.Row(
+                    controls=[
+                        ft.Container(width=220, content=ft.Text(name, size=12, weight=ft.FontWeight.BOLD)),
+                        ft.Container(width=bar_width, height=24, bgcolor=ft.Colors.CYAN_400, border_radius=12),
+                        ft.Container(width=60, content=ft.Text(str(qty), size=12, text_align=ft.TextAlign.RIGHT)),
+                    ],
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                )
+            )
+        model_sales_chart.controls = rows
 
     def refresh_dashboard() -> None:
         month = db["ventas"]["current_month"]
@@ -118,6 +143,7 @@ def run_app(page: ft.Page) -> None:
         mermas_text.value = f"${summary['mermas']:.2f}"
         ganancia_text.value = f"${summary['ganancia_neta']:.2f}"
         most_sold_text.value = service.product_map.get(summary["most_sold_id"], {}).get("name", summary["most_sold_id"])
+        render_month_model_sales_graph(month)
         sales = db["ventas"].get("by_month", {}).get(month, [])
         sig = _signature([s.get("id") for s in sales] + [s.get("status") for s in sales])
         if table_signatures.get("dashboard_sales") == sig:
@@ -145,7 +171,7 @@ def run_app(page: ft.Page) -> None:
     new_client_name = ft.TextField(label="o crear cliente nuevo", width=240)
     sale_product_dropdown = ft.Dropdown(label="Producto", width=360, options=[])
     sale_qty = ft.TextField(label="Cantidad", value="1", width=90)
-    sale_price_mode = ft.Dropdown(label="Modalidad", width=150, value="Normal", options=[ft.dropdown.Option("Normal"), ft.dropdown.Option("Patrocinio")])
+    sale_price_mode = ft.Dropdown(label="Modalidad", width=150, value="Normal", options=[ft.dropdown.Option("Normal"), ft.dropdown.Option("Patrocinio"), ft.dropdown.Option("Multi-modelo")])
     sponsorship_total_input = ft.TextField(label="Total patrocinio", value="0", width=150, disabled=True)
     engraving_mode = ft.Dropdown(label="Grabado", width=140, value="1 Lado", options=[ft.dropdown.Option("1 Lado"), ft.dropdown.Option("2 Lados"), ft.dropdown.Option("Sin grabado")])
     shipping_mode = ft.Dropdown(label="Envio", width=180, value="Entrega incluida", options=[ft.dropdown.Option("Entrega incluida"), ft.dropdown.Option("Envio Cotizado")])
@@ -265,8 +291,11 @@ def run_app(page: ft.Page) -> None:
             show_message("Stock insuficiente para esta venta.", ft.Colors.RED_400)
             return
         sponsorship_total = safe_float(sponsorship_total_input.value, 0.0)
-        if sale_price_mode.value == "Patrocinio" and sponsorship_total <= 0:
-            show_message("Captura un total valido para patrocinio.", ft.Colors.RED_400)
+        if sale_price_mode.value in ("Patrocinio", "Multi-modelo") and sponsorship_total <= 0:
+            if sale_price_mode.value == "Multi-modelo":
+                show_message("Captura un total valido para la modalidad multi-modelo.", ft.Colors.RED_400)
+            else:
+                show_message("Captura un total valido para patrocinio.", ft.Colors.RED_400)
             return
         subtotal, unit_price, pricing_note = calculate_sale_subtotal(product, qty, engraving_mode.value or "", sale_price_mode.value or "Normal", db.get("pricing", {}), sponsorship_total=sponsorship_total)
         engraving_cost = calculate_engraving_cost(subtotal, engraving_mode.value or "")
@@ -695,7 +724,8 @@ def run_app(page: ft.Page) -> None:
 
     def handle_sale_mode_change(e: ft.ControlEvent) -> None:
         sale_price_mode.value = e.control.value or "Normal"
-        sponsorship_total_input.disabled = sale_price_mode.value != "Patrocinio"
+        sponsorship_total_input.disabled = sale_price_mode.value not in ("Patrocinio", "Multi-modelo")
+        sponsorship_total_input.label = "Total" if sale_price_mode.value == "Multi-modelo" else "Total patrocinio"
         if sponsorship_total_input.disabled:
             sponsorship_total_input.value = "0"
         recalc_sale_totals(update=True)
@@ -731,6 +761,18 @@ def run_app(page: ft.Page) -> None:
                     ft.Button("Exportar PDF", icon=ft.Icons.PICTURE_AS_PDF, on_click=export_current_month_pdf),
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            ),
+            ft.Container(
+                expand=True,
+                padding=12,
+                bgcolor=ft.Colors.BLUE_GREY_900,
+                border_radius=10,
+                content=ft.Column(
+                    controls=[
+                        ft.Text("Modelos vendidos en el mes", weight=ft.FontWeight.BOLD),
+                        model_sales_chart,
+                    ]
+                ),
             ),
             ft.Divider(),
             ft.Text("Ventas del mes activo", weight=ft.FontWeight.BOLD),

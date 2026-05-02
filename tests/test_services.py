@@ -5,6 +5,7 @@ from services import (
     calculate_balance,
     calculate_sale_subtotal,
     generate_sale_id,
+    get_month_sales_by_model,
 )
 
 
@@ -44,6 +45,13 @@ class ServicesTests(unittest.TestCase):
         total = subtotal + 0.0 + 50.0
         self.assertEqual(calculate_balance(subtotal, 0.0, 50.0, 100.0), total - 100.0)
 
+    def test_multi_modelo_pricing_mode(self) -> None:
+        product = self.service.product_map["PICK-J3-12"]
+        subtotal, unit_price, note = calculate_sale_subtotal(product, 10, "1 Lado", "Multi-modelo", self.db["pricing"], sponsorship_total=450.0)
+        self.assertEqual(subtotal, 450.0)
+        self.assertEqual(unit_price, 450.0)
+        self.assertEqual(note, "Multi-modelo")
+
     def test_receive_purchase_updates_stock(self) -> None:
         self.service.add_purchase("PICK-J3-12", "10", "120")
         self.assertEqual(self.service.product_map["PICK-J3-12"]["stock"], 100)
@@ -51,6 +59,14 @@ class ServicesTests(unittest.TestCase):
         self.assertIn("actualizado", msg)
         self.assertEqual(self.service.product_map["PICK-J3-12"]["stock"], 110)
         self.assertIn("stock", sections)
+
+    def test_get_month_sales_by_model(self) -> None:
+        self.db["ventas"]["by_month"]["2026-04"] = [
+            {"id": "BHP-26-04-001", "product_id": "PICK-J3-12", "quantity": 2},
+            {"id": "BHP-26-04-002", "product_id": "PICK-J3-12", "quantity": 3},
+        ]
+        result = get_month_sales_by_model("2026-04", self.db["ventas"])
+        self.assertEqual(result, [("PICK-J3-12", 5)])
 
     def test_waste_affects_stock_and_cost(self) -> None:
         sections = self.service.add_waste("PICK-J3-12", "5", "Prueba")

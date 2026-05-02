@@ -6,7 +6,9 @@
       "product_id": "PICK-EST-15",
       "quantity": 300,
       "total_cost": 959.27,
-      "unit_cost": 3.2
+      "unit_cost": 3.2,
+      "received": true,
+      "received_date": "2026-05-01"
     },
     {
       "date": "2026-04-29",
@@ -25,8 +27,8 @@
       "quantity": 100,
       "total_cost": 405.58,
       "unit_cost": 4.06,
-      "received": false,
-      "received_date": ""
+      "received": true,
+      "received_date": "2026-05-01"
     },
     {
       "date": "2026-04-29",
@@ -34,7 +36,9 @@
       "product_id": "PICK-TRI-114",
       "quantity": 300,
       "total_cost": 1565.87,
-      "unit_cost": 5.22
+      "unit_cost": 5.22,
+      "received": true,
+      "received_date": "2026-05-01"
     },
     {
       "date": "2026-04-29",
@@ -42,7 +46,9 @@
       "product_id": "PICK-EST-10",
       "quantity": 400,
       "total_cost": 1199.45,
-      "unit_cost": 3.0
+      "unit_cost": 3.0,
+      "received": true,
+      "received_date": "2026-05-01"
     },
     {
       "date": "2026-04-30",

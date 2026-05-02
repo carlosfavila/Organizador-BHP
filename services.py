@@ -113,9 +113,10 @@ def calculate_sale_subtotal(
 ) -> tuple[float, float, str]:
     if qty <= 0:
         return 0.0, 0.0, "Cantidad invalida"
-    if pricing_mode == "Patrocinio":
+    if pricing_mode in ("Patrocinio", "Multi-modelo"):
         amount = max(0.0, sponsorship_total)
-        return amount, amount, "Patrocinio"
+        label = "Patrocinio" if pricing_mode == "Patrocinio" else "Multi-modelo"
+        return amount, amount, label
     if is_pick_product(product):
         pricing_group = product.get("pricing_group", infer_pick_pricing_group(product.get("name", "")))
         return calculate_pick_subtotal_from_rules(qty, engraving_mode, pricing_group, pricing_db)
@@ -147,6 +148,15 @@ def summarize_month(month: str, ventas: dict[str, Any], compras: dict[str, Any],
         "most_sold_id": most_sold,
         "sales_count": len(month_sales),
     }
+
+
+def get_month_sales_by_model(month: str, ventas: dict[str, Any]) -> list[tuple[str, int]]:
+    month_sales = ventas.get("by_month", {}).get(month, [])
+    sold_counter: dict[str, int] = {}
+    for sale in month_sales:
+        product_id = sale.get("product_id", "")
+        sold_counter[product_id] = sold_counter.get(product_id, 0) + int(sale.get("quantity", 0))
+    return sorted(sold_counter.items(), key=lambda item: item[1], reverse=True)
 
 
 class InventoryService:
