@@ -21,6 +21,7 @@ from services import (
     summarize_month,
 )
 from store import JsonStore
+from ui_theme import app_theme, card_container, colors, kpi_card, nav_button, status_chip
 
 try:
     from reportlab.lib.pagesizes import letter
@@ -76,10 +77,11 @@ def export_month_pdf(month: str, sales: list[dict[str, Any]], summary: dict[str,
 
 def run_app(page: ft.Page) -> None:
     page.title = "Black Hole Picks - Inventario y Ventas"
+    page.theme = app_theme()
     page.theme_mode = ft.ThemeMode.DARK
-    page.bgcolor = "#0A0A0A"
+    page.bgcolor = colors["background"]
     page.scroll = ft.ScrollMode.AUTO
-    page.padding = 16
+    page.padding = 0
     page.window.width = 1450
     page.window.height = 900
 
@@ -108,8 +110,12 @@ def run_app(page: ft.Page) -> None:
     mermas_text = ft.Text("$0.00")
     ganancia_text = ft.Text("$0.00", size=20, weight=ft.FontWeight.BOLD)
     most_sold_text = ft.Text("Sin ventas", color=ft.Colors.AMBER_200)
+    search_input = ft.TextField(label="Buscar...", width=300)
     model_sales_chart = ft.Column(expand=True, spacing=6)
     month_sales_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total", "Status"]], rows=[], column_spacing=18, heading_row_color=ft.Colors.BLUE_GREY_900)
+    
+    # Dropdown para seleccionar mes
+    month_dropdown = ft.Dropdown(label="Mes", width=150, options=[], on_select=None)
 
     def render_month_model_sales_graph(month: str) -> None:
         sales_by_model = get_month_sales_by_model(month, db["ventas"])
@@ -187,7 +193,7 @@ def run_app(page: ft.Page) -> None:
     total_preview = ft.Text("Total: $0.00")
     balance_preview = ft.Text("Saldo pendiente: $0.00", color=ft.Colors.AMBER_300)
 
-    sales_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total", "Estatus", "Eliminar"]], rows=[], heading_row_color=ft.Colors.BLUE_GREY_900, column_spacing=14)
+    sales_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total", "Estatus", "Eliminar"]], rows=[], heading_row_color=colors["border"], column_spacing=14)
     sale_status_options = ["En proceso", "Listas", "Entregado"]
 
     def status_color(status: str) -> str:
@@ -336,7 +342,7 @@ def run_app(page: ft.Page) -> None:
         show_message(f"Venta registrada: {sale_id}", ft.Colors.GREEN_500)
 
     # Stock
-    stock_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Producto", "Existente", "Pendiente (en camino)", "Minimo", "Guardar"]], rows=[], heading_row_color=ft.Colors.BLUE_GREY_900, column_spacing=16)
+    stock_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Producto", "Existente", "Pendiente (en camino)", "Minimo", "Guardar"]], rows=[], heading_row_color=colors["border"], column_spacing=16)
     new_product_name = ft.TextField(label="Nuevo producto", width=280)
     new_product_category = ft.Dropdown(label="Categoria", width=160, value="Plumillas", options=[ft.dropdown.Option("Plumillas"), ft.dropdown.Option("Alternos")])
     new_product_stock = ft.TextField(label="Stock inicial", value="0", width=110)
@@ -474,7 +480,7 @@ def run_app(page: ft.Page) -> None:
     purchase_product = ft.Dropdown(label="Producto", width=360, options=[])
     purchase_qty = ft.TextField(label="Cantidad", width=140)
     purchase_total = ft.TextField(label="Costo Total (con aranceles)", width=220)
-    purchase_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Fecha", "Producto", "Cantidad", "Costo Total", "Costo Unitario", "Estado", "Accion"]], rows=[], heading_row_color=ft.Colors.BLUE_GREY_900)
+    purchase_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Fecha", "Producto", "Cantidad", "Costo Total", "Costo Unitario", "Estado", "Accion"]], rows=[], heading_row_color=colors["border"])
 
     def refresh_purchases() -> None:
         purchase_product.options = [ft.dropdown.Option(key=x["id"], text=x["name"]) for x in service.stock_items]
@@ -527,7 +533,7 @@ def run_app(page: ft.Page) -> None:
     waste_product = ft.Dropdown(label="Producto", width=360, options=[])
     waste_qty = ft.TextField(label="Cantidad perdida", width=160)
     waste_reason = ft.TextField(label="Motivo", width=360)
-    waste_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Fecha", "Producto", "Cantidad", "Motivo", "Costo perdida"]], rows=[], heading_row_color=ft.Colors.BLUE_GREY_900)
+    waste_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Fecha", "Producto", "Cantidad", "Motivo", "Costo perdida"]], rows=[], heading_row_color=colors["border"])
 
     def refresh_waste() -> None:
         waste_product.options = [ft.dropdown.Option(key=x["id"], text=x["name"]) for x in service.stock_items]
@@ -569,7 +575,7 @@ def run_app(page: ft.Page) -> None:
         show_message("Merma registrada.", ft.Colors.ORANGE_400)
 
     # Clientes
-    clients_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Cliente", "Total gastado", "Compras", "Ultima compra"]], rows=[], heading_row_color=ft.Colors.BLUE_GREY_900)
+    clients_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Cliente", "Total gastado", "Compras", "Ultima compra"]], rows=[], heading_row_color=colors["border"])
     client_history_dropdown = ft.Dropdown(label="Detalle por cliente", width=360, options=[])
     client_history_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["Venta", "Fecha", "Producto", "Cant", "Total"]], rows=[], heading_row_color=ft.Colors.BLUE_GREY_900)
 
@@ -663,34 +669,31 @@ def run_app(page: ft.Page) -> None:
         dlg.open = True
         page.update()
 
-    def create_new_month(_: ft.ControlEvent) -> None:
-        month_input = ft.TextField(label="Nuevo mes (YYYY-MM)", value=datetime.now().strftime("%Y-%m"), width=220)
+    def on_month_change(_: ft.ControlEvent) -> None:
+        """Cambiar el mes activo cuando se selecciona en el dropdown."""
+        if not month_dropdown.value:
+            return
+        db["ventas"]["current_month"] = month_dropdown.value
+        save_sections({"ventas"})
+        mark_dirty("dashboard", "ventas", update_now=True)
+        show_message(f"Mes activo: {month_dropdown.value}")
 
-        def close() -> None:
-            dlg.open = False
-            page.update()
-
-        def submit(_: ft.ControlEvent) -> None:
-            month = month_input.value.strip()
-            if len(month) != 7 or month[4] != "-":
-                show_message("Mes invalido. Usa YYYY-MM.", ft.Colors.RED_400)
-                return
-            db["ventas"]["current_month"] = month
-            db["ventas"]["by_month"].setdefault(month, [])
+    def refresh_month_dropdown() -> None:
+        """Actualiza las opciones del dropdown de meses."""
+        available_months = store.get_available_months()
+        if not available_months:
+            available_months = [datetime.now().strftime("%Y-%m")]
+            db["ventas"]["by_month"].setdefault(available_months[0], [])
             save_sections({"ventas"})
-            mark_dirty("dashboard", "ventas", update_now=True)
-            close()
-            show_message(f"Mes activo actualizado a {month}.")
+        month_dropdown.options = [ft.dropdown.Option(m) for m in available_months]
+        current = db["ventas"]["current_month"]
+        if current not in [m for m in available_months]:
+            current = available_months[0]
+            db["ventas"]["current_month"] = current
+            save_sections({"ventas"})
+        month_dropdown.value = current
 
-        dlg = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Crear / cambiar mes"),
-            content=month_input,
-            actions=[ft.TextButton("Cancelar", on_click=lambda e: close()), ft.Button("Guardar", on_click=submit)],
-        )
-        page.dialog = dlg
-        dlg.open = True
-        page.update()
+    month_dropdown.on_select = on_month_change
 
     def export_current_month_pdf(_: ft.ControlEvent) -> None:
         if not REPORTLAB_AVAILABLE:
@@ -756,7 +759,7 @@ def run_app(page: ft.Page) -> None:
             ft.Row(
                 controls=[
                     ft.Container(padding=10, bgcolor=ft.Colors.BLUE_GREY_900, border_radius=8, content=ft.Row([ft.Text("Producto mas vendido:"), most_sold_text]), expand=True),
-                    ft.Button("Crear Nuevo Mes", icon=ft.Icons.CALENDAR_MONTH, on_click=create_new_month),
+                    month_dropdown,
                     ft.Button("Historial", icon=ft.Icons.HISTORY, on_click=open_history_dialog),
                     ft.Button("Exportar PDF", icon=ft.Icons.PICTURE_AS_PDF, on_click=export_current_month_pdf),
                 ],
@@ -783,84 +786,278 @@ def run_app(page: ft.Page) -> None:
 
     ventas_tab = ft.Column(
         controls=[
-            ft.Row([sale_id_preview, sale_date_preview], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ft.Row([client_dropdown, new_client_name]),
-            ft.Row([sale_product_dropdown, sale_qty, sale_price_mode, sponsorship_total_input, engraving_mode], wrap=True),
-            ft.Row([shipping_mode, shipping_manual, advance_input, sale_status], wrap=True),
-            notes_input,
-            ft.Row([subtotal_preview, pricing_rule_preview, engraving_preview, shipping_preview, total_preview, balance_preview], wrap=True),
-            ft.Row([ft.Button("Registrar venta", icon=ft.Icons.POINT_OF_SALE, on_click=add_sale)]),
-            ft.Divider(),
-            ft.Text("Ventas del mes", weight=ft.FontWeight.BOLD),
-            ft.Row([ft.Container(expand=True, content=ft.Column([sales_table], scroll=ft.ScrollMode.ALWAYS))], expand=True),
+            ft.Row(
+                [
+                    card_container(
+                        [
+                            ft.Row([ft.Text("Registrar venta", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                            ft.Row([sale_id_preview, sale_date_preview], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                            ft.Row([client_dropdown, new_client_name], wrap=True, spacing=16),
+                            ft.Row([sale_product_dropdown, sale_qty, sale_price_mode, sponsorship_total_input, engraving_mode], wrap=True, spacing=16),
+                            ft.Row([shipping_mode, shipping_manual, advance_input, sale_status], wrap=True, spacing=16),
+                            notes_input,
+                            ft.Row([ft.Button("Registrar venta", icon=ft.Icons.POINT_OF_SALE, on_click=add_sale)], alignment=ft.MainAxisAlignment.END),
+                        ],
+                        expand=True,
+                    ),
+                    card_container(
+                        [
+                            ft.Text("Resumen de venta", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD)),
+                            ft.Divider(color=colors["border"]),
+                            subtotal_preview,
+                            engraving_preview,
+                            shipping_preview,
+                            total_preview,
+                            balance_preview,
+                            ft.Divider(color=colors["border"]),
+                            pricing_rule_preview,
+                        ],
+                        width=340,
+                    ),
+                ],
+                expand=True,
+                spacing=16,
+            ),
+            card_container(
+                [
+                    ft.Row([ft.Text("Ventas del mes", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))]),
+                    ft.Container(expand=True, height=420, content=ft.Column([sales_table], scroll=ft.ScrollMode.ALWAYS)),
+                ],
+                expand=True,
+            ),
         ],
         expand=True,
+        spacing=20,
     )
 
     stock_tab = ft.Column(
         controls=[
-            ft.Text("Stock general (edicion rapida)", size=16, weight=ft.FontWeight.BOLD),
-            ft.Text("Las filas en rojo estan por debajo del minimo."),
-            ft.Button("Configurar costos de modelos de plumilla", icon=ft.Icons.TUNE, on_click=open_pick_pricing_dialog),
-            ft.Divider(),
-            ft.Text("Agregar nuevo producto", weight=ft.FontWeight.BOLD),
-            ft.Row([new_product_name, new_product_category, new_product_stock, new_product_min, new_product_cost, new_product_price_one_side, new_product_price_two_sides, ft.Button("Agregar", icon=ft.Icons.ADD_BOX, on_click=add_new_product)], wrap=True),
-            ft.Divider(),
-            ft.Row([ft.Container(expand=True, content=ft.Column([stock_table], scroll=ft.ScrollMode.ALWAYS))], expand=True),
+            card_container(
+                [
+                    ft.Row([ft.Text("Stock y catalogo", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Text("Stock actual y productos con stock bajo.", style=ft.TextStyle(color=colors["text_secondary"], size=13)),
+                    ft.Row([ft.Button("Configurar costos de modelos de plumilla", icon=ft.Icons.TUNE, on_click=open_pick_pricing_dialog)], alignment=ft.MainAxisAlignment.END),
+                ],
+                expand=True,
+            ),
+            card_container(
+                [
+                    ft.Text("Agregar nuevo producto", style=ft.TextStyle(color=colors["text_primary"], size=16, weight=ft.FontWeight.BOLD)),
+                    ft.Row([new_product_name, new_product_category, new_product_stock, new_product_min, new_product_cost, new_product_price_one_side, new_product_price_two_sides, ft.Button("Agregar", icon=ft.Icons.ADD_BOX, on_click=add_new_product)], wrap=True, spacing=16),
+                ],
+                expand=True,
+            ),
+            card_container(
+                [
+                    ft.Row([ft.Text("Inventario editable", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))]),
+                    ft.Container(expand=True, height=480, content=ft.Column([stock_table], scroll=ft.ScrollMode.ALWAYS)),
+                ],
+                expand=True,
+            ),
         ],
         expand=True,
+        spacing=20,
     )
 
     compras_tab = ft.Column(
         controls=[
-            ft.Row([purchase_product, purchase_qty, purchase_total, ft.Button("Registrar compra", on_click=add_purchase)], wrap=True),
-            ft.Divider(),
-            ft.Row([ft.Container(expand=True, content=ft.Column([purchase_table], scroll=ft.ScrollMode.ALWAYS))], expand=True),
+            card_container(
+                [
+                    ft.Row([ft.Text("Registrar compra", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Row([purchase_product, purchase_qty, purchase_total, ft.Button("Registrar compra", on_click=add_purchase)], wrap=True, spacing=16),
+                ],
+                expand=True,
+            ),
+            card_container(
+                [
+                    ft.Row([ft.Text("Compras recientes", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))]),
+                    ft.Container(expand=True, height=520, content=ft.Column([purchase_table], scroll=ft.ScrollMode.ALWAYS)),
+                ],
+                expand=True,
+            ),
         ],
         expand=True,
+        spacing=20,
     )
 
     mermas_tab = ft.Column(
         controls=[
-            ft.Row([waste_product, waste_qty, waste_reason, ft.Button("Registrar merma", on_click=add_waste)], wrap=True),
-            ft.Divider(),
-            ft.Row([ft.Container(expand=True, content=ft.Column([waste_table], scroll=ft.ScrollMode.ALWAYS))], expand=True),
+            card_container(
+                [
+                    ft.Row([ft.Text("Registrar merma", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Row([waste_product, waste_qty, waste_reason, ft.Button("Registrar merma", on_click=add_waste)], wrap=True, spacing=16),
+                ],
+                expand=True,
+            ),
+            card_container(
+                [
+                    ft.Row([ft.Text("Registro de mermas", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))]),
+                    ft.Container(expand=True, height=520, content=ft.Column([waste_table], scroll=ft.ScrollMode.ALWAYS)),
+                ],
+                expand=True,
+            ),
         ],
         expand=True,
+        spacing=20,
     )
 
     clientes_tab = ft.Column(
         controls=[
-            ft.Text("Base de clientes", size=16, weight=ft.FontWeight.BOLD),
-            ft.Row([ft.Container(expand=True, content=ft.Column([clients_table], scroll=ft.ScrollMode.ALWAYS))], expand=True),
-            ft.Divider(),
-            client_history_dropdown,
-            ft.Row([ft.Container(expand=True, content=ft.Column([client_history_table], scroll=ft.ScrollMode.ALWAYS))], expand=True),
+            card_container(
+                [
+                    ft.Row([ft.Text("Base de clientes", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))]),
+                    ft.Container(expand=True, height=260, content=ft.Column([clients_table], scroll=ft.ScrollMode.ALWAYS)),
+                ],
+                expand=True,
+            ),
+            card_container(
+                [
+                    ft.Row([ft.Text("Historial de cliente", style=ft.TextStyle(color=colors["text_primary"], size=18, weight=ft.FontWeight.BOLD))]),
+                    client_history_dropdown,
+                    ft.Container(expand=True, height=260, content=ft.Column([client_history_table], scroll=ft.ScrollMode.ALWAYS)),
+                ],
+                expand=True,
+            ),
         ],
+        expand=True,
+        spacing=20,
+    )
+
+    tab_ids = ["dashboard", "ventas", "stock", "compras", "mermas", "clientes"]
+    page_tabs: list[ft.Control] = []
+    nav_buttons: list[ft.Container] = []
+
+    def select_tab(index: int) -> None:
+        nonlocal active_tab
+        active_tab = tab_ids[index]
+        for idx, button in enumerate(nav_buttons):
+            button.bgcolor = colors["accent"] if idx == index else colors["surface"]
+        mark_dirty(active_tab, update_now=True)
+        content_view.content = page_tabs[index]
+        page.update()
+
+    def build_nav_item(label: str, icon: str, index: int) -> ft.Container:
+        button = nav_button(label, icon, selected=index == 0, on_click=lambda e, idx=index: select_tab(idx))
+        nav_buttons.append(button)
+        return button
+
+    page_tabs = [dashboard_tab, ventas_tab, stock_tab, compras_tab, mermas_tab, clientes_tab]
+    content_view = ft.Container(expand=True, content=dashboard_tab)
+
+    sidebar = ft.Column(
+        [
+            ft.Text("Black Hole Picks", style=ft.TextStyle(color=colors["text_primary"], size=20, weight=ft.FontWeight.BOLD)),
+            ft.Text("CRM Dashboard", style=ft.TextStyle(color=colors["text_secondary"], size=12)),
+            ft.Divider(color=colors["border"], height=1),
+            build_nav_item("Dashboard", ft.Icons.DASHBOARD, 0),
+            build_nav_item("Ventas", ft.Icons.POINT_OF_SALE, 1),
+            build_nav_item("Stock", ft.Icons.INVENTORY_2, 2),
+            build_nav_item("Compras", ft.Icons.SHOPPING_CART, 3),
+            build_nav_item("Mermas", ft.Icons.DELETE, 4),
+            build_nav_item("Clientes", ft.Icons.GROUP, 5),
+        ],
+        spacing=16,
         expand=True,
     )
 
-    tabs = ft.Tabs(
-        length=6,
-        selected_index=0,
-        on_change=on_tab_change,
-        content=ft.Column(
-            controls=[
-                ft.TabBar(
-                    tabs=[ft.Tab(label="Dashboard"), ft.Tab(label="Ventas"), ft.Tab(label="Stock"), ft.Tab(label="Compras"), ft.Tab(label="Mermas"), ft.Tab(label="Clientes")],
-                    indicator_color=ft.Colors.CYAN_300,
-                    label_color=ft.Colors.CYAN_200,
-                    unselected_label_color=ft.Colors.BLUE_GREY_200,
-                ),
-                ft.Container(expand=True, content=ft.TabBarView(controls=[dashboard_tab, ventas_tab, stock_tab, compras_tab, mermas_tab, clientes_tab], expand=True)),
-            ],
-            expand=True,
-        ),
-        expand=1,
+    header_bar = ft.Row(
+        [
+            ft.Column(
+                [
+                    ft.Text("Black Hole Picks", style=ft.TextStyle(color=colors["text_primary"], size=24, weight=ft.FontWeight.BOLD)),
+                    current_month_label,
+                ],
+                spacing=6,
+            ),
+            ft.Row(
+                [
+                    search_input,
+                    month_dropdown,
+                    ft.Button("Historial", icon=ft.Icons.HISTORY, on_click=open_history_dialog, bgcolor=colors["surface"], color=colors["text_primary"]),
+                    ft.Button("Exportar PDF", icon=ft.Icons.PICTURE_AS_PDF, on_click=export_current_month_pdf, bgcolor=colors["surface"], color=colors["text_primary"]),
+                ],
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
 
-    page.add(tabs)
+    dashboard_tab = ft.Column(
+        [
+            ft.Row(
+                [
+                    kpi_card("Ingresos", ingresos_text.value, accent=False),
+                    kpi_card("Inversión", inversion_text.value),
+                    kpi_card("Mermas", mermas_text.value),
+                    kpi_card("Ganancia Neta", ganancia_text.value, accent=True),
+                ],
+                spacing=16,
+                expand=True,
+            ),
+            ft.Row(
+                [
+                    card_container(
+                        [
+                            ft.Text("Producto más vendido", style=ft.TextStyle(color=colors["text_primary"], size=16, weight=ft.FontWeight.BOLD)),
+                            ft.Text(most_sold_text.value, style=ft.TextStyle(color=colors["accent"], size=18, weight=ft.FontWeight.BOLD)),
+                            ft.Divider(color=colors["border"]),
+                            model_sales_chart,
+                        ],
+                        expand=True,
+                        height=320,
+                    ),
+                    card_container(
+                        [
+                            ft.Text("Ventas recientes", style=ft.TextStyle(color=colors["text_primary"], size=16, weight=ft.FontWeight.BOLD)),
+                            ft.Container(expand=True, height=320, content=ft.Column([month_sales_table], scroll=ft.ScrollMode.ALWAYS)),
+                        ],
+                        expand=True,
+                    ),
+                ],
+                spacing=16,
+                expand=True,
+            ),
+        ],
+        spacing=20,
+        expand=True,
+    )
+
+    main_content = ft.Column(
+        [
+            header_bar,
+            ft.Container(expand=True, content=content_view),
+        ],
+        spacing=20,
+        expand=True,
+    )
+
+    page.add(
+        ft.Container(
+            expand=True,
+            padding=24,
+            content=ft.Row(
+                [
+                    ft.Container(
+                        width=260,
+                        padding=ft.padding.symmetric(vertical=24, horizontal=16),
+                        bgcolor=colors["surface"],
+                        border_radius=18,
+                        border=ft.border.all(1, colors["border"]),
+                        shadow=ft.BoxShadow(color="#00000030", blur_radius=20, offset=ft.Offset(0, 8)),
+                        content=sidebar,
+                    ),
+                    ft.VerticalDivider(width=24, color=colors["background"]),
+                    ft.Container(expand=True, content=main_content),
+                ],
+                expand=True,
+            ),
+        )
+    )
+    refresh_month_dropdown()
     refresh_dashboard()
     refresh_sales()
     tab_initialized.update({"dashboard", "ventas"})
     page.update()
+

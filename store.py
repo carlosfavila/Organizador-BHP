@@ -101,6 +101,12 @@ class JsonStore:
             "pricing": self._read_json(self.paths["pricing"], deepcopy(DEFAULT_PICK_PRICING)),
         }
 
+    def get_available_months(self) -> list[str]:
+        """Retorna lista de meses disponibles en las ventas, ordenados descendentemente."""
+        ventas_data = self._read_json(self.paths["ventas"], {"by_month": {}})
+        months = sorted(list(ventas_data.get("by_month", {}).keys()), reverse=True)
+        return months
+
     def save_sections(self, payload: dict[str, Any], sections: set[str]) -> None:
         for section in sections:
             path = self.paths.get(section)
