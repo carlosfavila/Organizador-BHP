@@ -1,0 +1,23 @@
+[
+  {
+    "id": "BHP-26-05-001",
+    "date": "2026-05-02",
+    "month": "2026-05",
+    "client_name": "Héctor Tame - Naastrand",
+    "product_id": "PICK-JXL-12",
+    "quantity": 20,
+    "pricing_mode": "Normal",
+    "pricing_note": "Jazz XL y III paquete 20",
+    "engraving_mode": "2 Lados",
+    "engraving_cost": 0.0,
+    "shipping_mode": "Entrega incluida",
+    "shipping_cost": 0.0,
+    "advance": 370.0,
+    "unit_sale_price": 18.5,
+    "subtotal": 370.0,
+    "total": 370.0,
+    "balance": 0.0,
+    "status": "En proceso",
+    "notes": ""
+  }
+]

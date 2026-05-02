@@ -117,6 +117,19 @@
           "total": 446.0
         }
       ]
+    },
+    {
+      "name": "Héctor Tame - Naastrand",
+      "total_spent": 370.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-05-001",
+          "date": "2026-05-02",
+          "product_id": "PICK-JXL-12",
+          "quantity": 20,
+          "total": 370.0
+        }
+      ]
     }
   ]
 }
