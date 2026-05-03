@@ -957,7 +957,7 @@ def run_app(page: ft.Page) -> None:
             build_nav_item("Clientes", ft.Icons.GROUP, 5),
         ],
         spacing=16,
-        expand=True,
+        expand=False,
     )
 
     header_bar = ft.Row(
@@ -1052,6 +1052,7 @@ def run_app(page: ft.Page) -> None:
                     ft.Container(expand=True, content=main_content),
                 ],
                 expand=True,
+                vertical_alignment=ft.CrossAxisAlignment.START,
             ),
         )
     )
