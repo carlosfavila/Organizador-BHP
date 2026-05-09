@@ -110,7 +110,6 @@ def run_app(page: ft.Page) -> None:
     mermas_text = ft.Text("$0.00")
     ganancia_text = ft.Text("$0.00", size=20, weight=ft.FontWeight.BOLD)
     most_sold_text = ft.Text("Sin ventas", color=ft.Colors.AMBER_200)
-    search_input = ft.TextField(label="Buscar...", width=300)
     model_sales_chart = ft.Column(expand=True, spacing=6)
     month_sales_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total", "Status"]], rows=[], column_spacing=18, heading_row_color=ft.Colors.BLUE_GREY_900)
     
@@ -193,7 +192,7 @@ def run_app(page: ft.Page) -> None:
     total_preview = ft.Text("Total: $0.00")
     balance_preview = ft.Text("Saldo pendiente: $0.00", color=ft.Colors.AMBER_300)
 
-    sales_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total", "Estatus", "Eliminar"]], rows=[], heading_row_color=colors["border"], column_spacing=14)
+    sales_table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total", "Anticipo", "Pago", "Estatus", "Eliminar"]], rows=[], heading_row_color=colors["border"], column_spacing=12)
     sale_status_options = ["En proceso", "Listas", "Entregado"]
 
     def status_color(status: str) -> str:
@@ -213,6 +212,33 @@ def run_app(page: ft.Page) -> None:
         save_sections({"ventas"})
         mark_dirty("ventas", "dashboard", update_now=True)
         show_message(f"Estatus actualizado a '{new_status}'.", ft.Colors.GREEN_500)
+
+    def update_payment_status(sale_id: str, payment_status: str) -> None:
+        """Actualiza el estado de pago de una venta (Anticipo o Pagado)"""
+        month = db["ventas"]["current_month"]
+        month_sales = db["ventas"].get("by_month", {}).get(month, [])
+        target = next((s for s in month_sales if s.get("id") == sale_id), None)
+        if not target:
+            show_message("No se encontró la venta.", ft.Colors.RED_400)
+            return
+        
+        old_status = target.get("payment_status", "Anticipo")
+        target["payment_status"] = payment_status
+        
+        # Actualizar balance según el estado de pago
+        if payment_status == "Anticipo":
+            target["balance"] = target.get("total", 0) - target.get("advance", 0)
+        else:  # Pagado
+            target["balance"] = 0
+        
+        save_sections({"ventas"})
+        mark_dirty("ventas", "dashboard", update_now=True)
+        
+        if old_status == "Anticipo" and payment_status == "Pagado":
+            remaining = target.get("total", 0) - target.get("advance", 0)
+            show_message(f"Venta completada. Se agregó ${remaining:.2f} a las ganancias del mes.", ft.Colors.GREEN_500)
+        else:
+            show_message(f"Pago marcado como '{payment_status}'.", ft.Colors.GREEN_500)
 
     def delete_sale(sale_id: str) -> None:
         month = db["ventas"]["current_month"]
@@ -266,9 +292,25 @@ def run_app(page: ft.Page) -> None:
                         ft.DataCell(ft.Text(service.product_map.get(s.get("product_id", ""), {}).get("name", s.get("product_id", "")))),
                         ft.DataCell(ft.Text(str(s.get("quantity", 0)))),
                         ft.DataCell(ft.Text(f"${s.get('total', 0):.2f}")),
+                        ft.DataCell(ft.Text(f"${s.get('advance', 0):.2f}")),
+                        ft.DataCell(
+                            ft.Text(
+                                "Pagado",
+                                color=ft.Colors.GREEN_500,
+                                weight=ft.FontWeight.BOLD,
+                            ) if s.get("payment_status", "Anticipo") == "Pagado"
+                            else ft.Dropdown(
+                                width=120,
+                                value=s.get("payment_status", "Anticipo"),
+                                options=[ft.dropdown.Option(opt) for opt in ["Anticipo", "Pagado"]],
+                                text_style=ft.TextStyle(color=ft.Colors.ORANGE_400),
+                                disabled=s.get("auto_paid", False),
+                                on_select=lambda e, sid=s.get("id", ""): update_payment_status(sid, e.control.value or "Anticipo"),
+                            )
+                        ),
                         ft.DataCell(
                             ft.Dropdown(
-                                width=150,
+                                width=120,
                                 value=s.get("status", "En proceso"),
                                 options=[ft.dropdown.Option(opt) for opt in sale_status_options],
                                 text_style=ft.TextStyle(color=status_color(s.get("status", "En proceso"))),
@@ -309,6 +351,11 @@ def run_app(page: ft.Page) -> None:
         advance = safe_float(advance_input.value, 0.0)
         total = round(subtotal + engraving_cost + shipping_cost, 2)
         balance = calculate_balance(subtotal, engraving_cost, shipping_cost, advance)
+        
+        # Si Total == Anticipo, automáticamente es "Pagado" y se bloquea
+        is_auto_paid = (total == advance and advance > 0)
+        payment_status = "Pagado" if is_auto_paid else "Anticipo"
+        
         sale_id, sections = service.add_sale(
             {
                 "client_name": client_name,
@@ -319,6 +366,8 @@ def run_app(page: ft.Page) -> None:
                 "engraving_mode": engraving_mode.value or "1 Lado",
                 "shipping_mode": shipping_mode.value or "Entrega incluida",
                 "status": sale_status.value or "En proceso",
+                "payment_status": payment_status,
+                "auto_paid": is_auto_paid,
                 "notes": notes_input.value or "",
                 "subtotal": subtotal,
                 "unit_price": unit_price,
@@ -625,58 +674,29 @@ def run_app(page: ft.Page) -> None:
         render_client_history(update=False)
 
     # Dialogs
-    def open_history_dialog(_: ft.ControlEvent) -> None:
-        month_options = sorted(db["ventas"].get("by_month", {}).keys(), reverse=True)
-        selected = ft.Dropdown(label="Selecciona mes", options=[ft.dropdown.Option(m) for m in month_options], value=month_options[0] if month_options else None, width=260)
-        summary_text = ft.Text("")
-        table = ft.DataTable(columns=[ft.DataColumn(ft.Text(x)) for x in ["ID", "Fecha", "Cliente", "Producto", "Cant", "Total"]], rows=[])
-
-        def render(_: ft.ControlEvent | None = None) -> None:
-            month = selected.value
-            if not month:
-                return
-            summary = summarize_month(month, db["ventas"], db["compras"], db["mermas"])
-            summary_text.value = f"Ingresos: ${summary['ingresos']:.2f} | Inversion: ${summary['inversion']:.2f} | Mermas: ${summary['mermas']:.2f} | Neta: ${summary['ganancia_neta']:.2f}"
-            table.rows = [
-                ft.DataRow(
-                    cells=[
-                        ft.DataCell(ft.Text(s.get("id", ""))),
-                        ft.DataCell(ft.Text(s.get("date", ""))),
-                        ft.DataCell(ft.Text(s.get("client_name", ""))),
-                        ft.DataCell(ft.Text(service.product_map.get(s.get("product_id", ""), {}).get("name", s.get("product_id", "")))),
-                        ft.DataCell(ft.Text(str(s.get("quantity", 0)))),
-                        ft.DataCell(ft.Text(f"${s.get('total', 0):.2f}")),
-                    ]
-                )
-                for s in db["ventas"].get("by_month", {}).get(month, [])
-            ]
-            page.update()
-
-        selected.on_select = render
-        render()
-
-        def close() -> None:
-            dlg.open = False
-            page.update()
-
-        dlg = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Historial Mensual"),
-            content=ft.Container(width=950, height=520, content=ft.Column([selected, summary_text, ft.Divider(), ft.Row([ft.Container(expand=True, content=ft.Column([table], scroll=ft.ScrollMode.ALWAYS))], expand=True)])),
-            actions=[ft.TextButton("Cerrar", on_click=lambda e: close())],
-        )
-        page.dialog = dlg
-        dlg.open = True
-        page.update()
 
     def on_month_change(_: ft.ControlEvent) -> None:
         """Cambiar el mes activo cuando se selecciona en el dropdown."""
         if not month_dropdown.value:
             return
-        db["ventas"]["current_month"] = month_dropdown.value
+        selected_month = month_dropdown.value
+        # Actualizar mes actual
+        db["ventas"]["current_month"] = selected_month
+        # Asegurar que el mes existe en la estructura de datos
+        if selected_month not in db["ventas"]["by_month"]:
+            db["ventas"]["by_month"][selected_month] = []
+        # Guardar cambios
         save_sections({"ventas"})
-        mark_dirty("dashboard", "ventas", update_now=True)
-        show_message(f"Mes activo: {month_dropdown.value}")
+        # Limpiar cache de firmas de tabla para forzar refresh
+        table_signatures.clear()
+        # Actualizar labels del mes
+        current_month_label.value = f"Mes activo: {selected_month}"
+        # Refrescar directamente ambas vistas
+        refresh_dashboard()
+        refresh_sales()
+        # Actualizar UI
+        page.update()
+        show_message(f"Mes activo: {selected_month}")
 
     def refresh_month_dropdown() -> None:
         """Actualiza las opciones del dropdown de meses."""
@@ -759,9 +779,6 @@ def run_app(page: ft.Page) -> None:
             ft.Row(
                 controls=[
                     ft.Container(padding=10, bgcolor=ft.Colors.BLUE_GREY_900, border_radius=8, content=ft.Row([ft.Text("Producto mas vendido:"), most_sold_text]), expand=True),
-                    month_dropdown,
-                    ft.Button("Historial", icon=ft.Icons.HISTORY, on_click=open_history_dialog),
-                    ft.Button("Exportar PDF", icon=ft.Icons.PICTURE_AS_PDF, on_click=export_current_month_pdf),
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             ),
@@ -971,9 +988,7 @@ def run_app(page: ft.Page) -> None:
             ),
             ft.Row(
                 [
-                    search_input,
                     month_dropdown,
-                    ft.Button("Historial", icon=ft.Icons.HISTORY, on_click=open_history_dialog, bgcolor=colors["surface"], color=colors["text_primary"]),
                     ft.Button("Exportar PDF", icon=ft.Icons.PICTURE_AS_PDF, on_click=export_current_month_pdf, bgcolor=colors["surface"], color=colors["text_primary"]),
                 ],
                 spacing=12,

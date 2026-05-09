@@ -130,7 +130,15 @@ def summarize_month(month: str, ventas: dict[str, Any], compras: dict[str, Any],
     month_purchases = [x for x in compras.get("items", []) if month_key_from_date(x.get("date", "")) == month]
     month_waste = [x for x in mermas.get("items", []) if month_key_from_date(x.get("date", "")) == month]
 
-    ingresos = round(sum(s.get("total", 0) for s in month_sales), 2)
+    # Ingresos: suma anticipo si está en "Anticipo", suma total si está "Pagado"
+    ingresos = round(
+        sum(
+            s.get("total", 0) if s.get("payment_status", "Anticipo") == "Pagado" 
+            else s.get("advance", 0)
+            for s in month_sales
+        ), 
+        2
+    )
     inversion = round(sum(p.get("total_cost", 0) for p in month_purchases), 2)
     costo_mermas = round(sum(m.get("loss_cost", 0) for m in month_waste), 2)
     ganancia_neta = round(ingresos - inversion - costo_mermas, 2)

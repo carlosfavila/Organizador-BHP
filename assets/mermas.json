@@ -1,3 +1,12 @@
 {
-  "items": []
+  "items": [
+    {
+      "date": "2026-05-07",
+      "month": "2026-05",
+      "product_id": "PICK-TRI-114",
+      "quantity": 1,
+      "reason": "grabado de la misma imagen por ambos lados",
+      "loss_cost": 5.22
+    }
+  ]
 }

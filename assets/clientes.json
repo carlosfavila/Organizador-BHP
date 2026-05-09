@@ -130,6 +130,73 @@
           "total": 370.0
         }
       ]
+    },
+    {
+      "name": "Adán - Los Clermont",
+      "total_spent": 420.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-05-002",
+          "date": "2026-05-07",
+          "product_id": "PICK-EST-071",
+          "quantity": 10,
+          "total": 140.0
+        },
+        {
+          "sale_id": "BHP-26-05-003",
+          "date": "2026-05-07",
+          "product_id": "PICK-EST-10",
+          "quantity": 10,
+          "total": 140.0
+        },
+        {
+          "sale_id": "BHP-26-05-004",
+          "date": "2026-05-07",
+          "product_id": "PICK-EST-15",
+          "quantity": 10,
+          "total": 140.0
+        }
+      ]
+    },
+    {
+      "name": "Oscar - Conciertos",
+      "total_spent": 750.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-05-005",
+          "date": "2026-05-09",
+          "product_id": "PICK-TRI-114",
+          "quantity": 50,
+          "total": 750.0
+        }
+      ]
+    },
+    {
+      "name": "Poncho - Malignant",
+      "total_spent": 1610.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-05-006",
+          "date": "2026-05-09",
+          "product_id": "PICK-J3-12",
+          "quantity": 30,
+          "total": 640.0
+        },
+        {
+          "sale_id": "BHP-26-05-007",
+          "date": "2026-05-09",
+          "product_id": "PICK-TRI-114",
+          "quantity": 30,
+          "total": 450.0
+        },
+        {
+          "sale_id": "BHP-26-05-008",
+          "date": "2026-05-09",
+          "product_id": "PICK-EST-071",
+          "quantity": 40,
+          "total": 520.0
+        }
+      ]
     }
   ]
 }
