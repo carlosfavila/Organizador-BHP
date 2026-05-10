@@ -197,6 +197,26 @@
           "total": 520.0
         }
       ]
+    },
+    {
+      "name": "Fasie - Ominious Sins",
+      "total_spent": 630.0,
+      "orders": [
+        {
+          "sale_id": "BHP-26-05-009",
+          "date": "2026-05-10",
+          "product_id": "PICK-JXL-12",
+          "quantity": 30,
+          "total": 480.0
+        },
+        {
+          "sale_id": "BHP-26-05-010",
+          "date": "2026-05-10",
+          "product_id": "PICK-TRI-114",
+          "quantity": 10,
+          "total": 150.0
+        }
+      ]
     }
   ]
 }

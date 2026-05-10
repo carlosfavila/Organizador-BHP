@@ -280,7 +280,7 @@ def run_app(page: ft.Page) -> None:
         sales = db["ventas"]["by_month"].get(month, [])
         sale_id_preview.value = f"ID: {generate_sale_id(month, sales)}"
         sale_date_preview.value = f"Fecha: {datetime.now().strftime('%Y-%m-%d')}"
-        sig = _signature([s.get("id") for s in sales] + [s.get("status") for s in sales])
+        sig = _signature([s.get("id") for s in sales] + [s.get("status") for s in sales] + [s.get("payment_status") for s in sales])
         if table_signatures.get("sales_table") != sig:
             table_signatures["sales_table"] = sig
             sales_table.rows = [
@@ -309,7 +309,12 @@ def run_app(page: ft.Page) -> None:
                             )
                         ),
                         ft.DataCell(
-                            ft.Dropdown(
+                            ft.Text(
+                                "Entregado",
+                                color=ft.Colors.GREEN_500,
+                                weight=ft.FontWeight.BOLD,
+                            ) if s.get("status", "En proceso") == "Entregado"
+                            else ft.Dropdown(
                                 width=120,
                                 value=s.get("status", "En proceso"),
                                 options=[ft.dropdown.Option(opt) for opt in sale_status_options],

@@ -102,9 +102,10 @@
     "unit_sale_price": 15.0,
     "subtotal": 750.0,
     "total": 750.0,
-    "balance": 750.0,
-    "status": "Listas",
-    "notes": "Megadeath"
+    "balance": 0,
+    "status": "Entregado",
+    "notes": "Megadeath",
+    "payment_status": "Pagado"
   },
   {
     "id": "BHP-26-05-006",
@@ -146,7 +147,8 @@
     "total": 450.0,
     "balance": 225.0,
     "status": "En proceso",
-    "notes": ""
+    "notes": "",
+    "payment_status": "Anticipo"
   },
   {
     "id": "BHP-26-05-008",
@@ -166,6 +168,48 @@
     "subtotal": 520.0,
     "total": 520.0,
     "balance": 260.0,
+    "status": "En proceso",
+    "notes": ""
+  },
+  {
+    "id": "BHP-26-05-009",
+    "date": "2026-05-10",
+    "month": "2026-05",
+    "client_name": "Fasie - Ominious Sins",
+    "product_id": "PICK-JXL-12",
+    "quantity": 30,
+    "pricing_mode": "Multi-modelo",
+    "pricing_note": "Multi-modelo",
+    "engraving_mode": "2 Lados",
+    "engraving_cost": 0.0,
+    "shipping_mode": "Entrega incluida",
+    "shipping_cost": 0.0,
+    "advance": 240.0,
+    "unit_sale_price": 480.0,
+    "subtotal": 480.0,
+    "total": 480.0,
+    "balance": 240.0,
+    "status": "En proceso",
+    "notes": ""
+  },
+  {
+    "id": "BHP-26-05-010",
+    "date": "2026-05-10",
+    "month": "2026-05",
+    "client_name": "Fasie - Ominious Sins",
+    "product_id": "PICK-TRI-114",
+    "quantity": 10,
+    "pricing_mode": "Multi-modelo",
+    "pricing_note": "Multi-modelo",
+    "engraving_mode": "2 Lados",
+    "engraving_cost": 0.0,
+    "shipping_mode": "Entrega incluida",
+    "shipping_cost": 0.0,
+    "advance": 60.0,
+    "unit_sale_price": 150.0,
+    "subtotal": 150.0,
+    "total": 150.0,
+    "balance": 90.0,
     "status": "En proceso",
     "notes": ""
   }
